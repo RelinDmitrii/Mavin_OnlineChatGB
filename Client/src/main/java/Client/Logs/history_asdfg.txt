@@ -1,0 +1,10 @@
+19:46:42 asdfg : asfasf
+
+19:46:43 asdfg : fdaafd
+
+19:46:48 ttttt : adfdsfa
+
+[ttttt] private [asdfg] : fdasfasdf
+
+[asdfg] private [asdfg] : fadfadf
+
