@@ -9,42 +9,52 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Vector;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 
 public class Server {
 
-    private static int PORT = 8159; // Порт на котором расположен сервер
+    private static int PORT = 8179; // Порт на котором расположен сервер
     ServerSocket server = null; // Сокет сервера
     Socket socket = null; // Сокет который выделяется сервером под клиента
     List<ClientHandler> clients; // Список всех подключившихся клинетов
     private AuthService authService;
     private static Statement statement;
+    private ExecutorService service;
 
     public Server() {
+        service = Executors.newCachedThreadPool();
         clients = new Vector<>();
+//        authService = new SimpleAuthService();
 
-        try {
-            statement = ConnectionToSql.connectToSQL();
-            authService = new SimpleAuthService();
+
+        if (!SQLHandler.connect()) {
+            throw new RuntimeException("Не удалось подключиться к БД");
+        }
+        authService = new DBAuthService();
+
+
+
+
+        try {//statement = ConnectionToSql.connectToSQL();
+            // authService = new SimpleAuthService();
             server = new ServerSocket(PORT); // Создаем сервер сокет.
             System.out.println("Сервер запущен");
 
             while (true) {
                 socket = server.accept(); // Как только кто-то подключается появляется клиентский соккет
                 System.out.println("Клиент подключился");
-                new ClientHandler(this, socket); // Создаем нового клиента в скисок (Конструктор Сервер/Соккет)
-
+                new ClientHandler(this, socket, service); // Создаем нового клиента в скисок (Конструктор Сервер/Соккет)
             }
 
 
         } catch (IOException e) {
             e.printStackTrace();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
-        } catch (ClassNotFoundException e) {
-            e.printStackTrace();
-        } finally { // обазяательное закрытие соеденения.
+        } finally {
+            SQLHandler.disconnect();
             try {
+                service.shutdown();
                 server.close();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -132,16 +142,15 @@ public class Server {
      * Метод по добавление клиентов в список чата
      */
     public void broadClientList() {
-      StringBuilder sb = new StringBuilder("/clientList ");
-      for (ClientHandler c: clients){
-          sb.append(c.getNickName()).append(" ");
-      }
-      String msg = sb.toString();
-      for (ClientHandler c: clients){
-          c.sendMsg(msg);
-      }
+        StringBuilder sb = new StringBuilder("/clientList ");
+        for (ClientHandler c: clients){
+            sb.append(c.getNickName()).append(" ");
+        }
+        String msg = sb.toString();
+        for (ClientHandler c: clients){
+            c.sendMsg(msg);
+        }
     }
-
 
 
 }

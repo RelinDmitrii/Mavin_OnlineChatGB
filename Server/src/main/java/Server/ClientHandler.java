@@ -4,6 +4,7 @@ import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
+import java.util.concurrent.ExecutorService;
 
 public class ClientHandler {
 
@@ -15,28 +16,28 @@ public class ClientHandler {
     private String login; // login для отсутсивя возможности заходить под одинаковыми никами с разных окон
     private boolean avtoriz = false;
 
-    public ClientHandler(Server server, Socket socket) {
-        try{
-        this.server = server;
-        this.socket = socket;
-        in = new DataInputStream(socket.getInputStream());
-        out = new DataOutputStream(socket.getOutputStream());
-        //socket.setSoTimeout(45000);
+    public ClientHandler(Server server, Socket socket, ExecutorService service) {
+        try {
+            this.server = server;
+            this.socket = socket;
+            in = new DataInputStream(socket.getInputStream());
+            out = new DataOutputStream(socket.getOutputStream());
+            //socket.setSoTimeout(45000);
 
-
-        new Thread(() -> { // Поток для запуска работы каждый раз с новым клиентом
+            service.execute(() ->
+            { // Поток для запуска работы каждый раз с новым клиентом
                 try {
                     // ЦИКЛ АУТЕНТИФИКАЦИИ (ПОЛЬЗОВАТЕЛЬ ИМЕЕТ НЕСКОЛЬКО ПОПЫТОК)
-                    while (true){
+                    while (true) {
                         String str = in.readUTF();
-                        if (str.startsWith("/auth")){ // если начинается с пртокола
-                        String [] token = str.split("\\s");//разбиваем строку для получения логина и пароля
-                        String newNick = server.getAuthService().getNicknameByLoginAndPassword(token[1],token[2]); // логин в 1 токен, пароль во 2
-                        login = token[1]; // запоминаем авторизацию
+                        if (str.startsWith("/auth")) { // если начинается с пртокола
+                            String[] token = str.split("\\s");//разбиваем строку для получения логина и пароля
+                            String newNick = server.getAuthService().getNicknameByLoginAndPassword(token[1], token[2]); // логин в 1 токен, пароль во 2
+                            login = token[1]; // запоминаем авторизацию
 
 
-                            if(newNick!=null){
-                                if(!server.isLoginAuthenticated(token[1])) {
+                            if (newNick != null) {
+                                if (!server.isLoginAuthenticated(token[1])) {
                                     nickName = newNick;
                                     sendMsg("/authok " + nickName); // ПО ПРОТОКОЛУ ИДЕНТИФИКАЦИЯ ПРОШЛА
                                     server.subscribe(this); // ДОБАВИЛИ КЛИЕНТА в МАССИВ
@@ -49,26 +50,26 @@ public class ClientHandler {
                                 sendMsg("Неверный Логин / Пароль");
                             }
                         }
-                        if(str.startsWith("/reg")){
+                        if (str.startsWith("/reg")) {
                             String[] token = str.split("\\s");
-                            if(token.length<4){
+                            if (token.length < 4) {
                                 continue;
                             }
-                            boolean isRegistration = server.getAuthService().registration(token[1], token[2],token[3]);
-                            if(isRegistration){
+                            boolean isRegistration = server.getAuthService().registration(token[1], token[2], token[3]);
+                            if (isRegistration) {
                                 sendMsg("/regok");
-                            } else{
+                            } else {
                                 sendMsg("/regno");
                             }
                         }
 
                     }
-                   // socket.setSoTimeout(0);
+                    // socket.setSoTimeout(0);
                     // ЦИКЛ РАБОТЫ
                     while (true) {
                         String str = in.readUTF();
 
-                        if(str.startsWith("/")) {
+                        if (str.startsWith("/")) {
 
                             if (str.equals("/end")) {
                                 out.writeUTF("/end");
@@ -77,19 +78,40 @@ public class ClientHandler {
 
                             if (str.startsWith("/w")) {
                                 String[] token = str.split("\\s+", 3);
-                                if (token.length <3){
+                                if (token.length < 3) {
                                     continue;
                                 }
                                 server.privateCastMsg(this, token[1], token[2]);
                             }
 
-                        }else {
+
+                            if (str.startsWith("/chnick ")) {
+                                String[] token = str.split(" ", 2);
+                                if (token.length < 2) {
+                                    continue;
+                                }
+                                if (token[1].contains(" ")) {
+                                    sendMsg("Ник не может содержать пробелов");
+                                    continue;
+                                }
+                                if (server.getAuthService().changeNick(this.nickName, token[1])) {
+                                    sendMsg("/yournickis " + token[1]);
+                                    sendMsg("Ваш ник изменен на " + token[1]);
+                                    this.nickName = token[1];
+                                    server.broadClientList();
+                                } else {
+                                    sendMsg("Не удалось изменить ник. Ник " + token[1] + " уже существует");
+                                }
+                            }
+
+
+                        } else {
                             server.broadCastMsg(this, str);
                         }
                     }
-                } catch (IOException e){
+                } catch (IOException e) {
 //                        e.printStackTrace();
-                    } finally {
+                } finally {
                     System.out.println("Клиент отключился");
                     server.unsubscribe(this); // Удаление клиента из массива после закрытия соединения
                     try {
@@ -98,14 +120,15 @@ public class ClientHandler {
                         e.printStackTrace();
                     }
                 }
-        }).start();
-    } catch (IOException e) {
+            });
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     /**
      * Метод отвечающий за отправку сообщения клиенту
+     *
      * @param msg Само сообщение
      */
     void sendMsg(String msg) {
@@ -116,12 +139,11 @@ public class ClientHandler {
         }
     }
 
-    public String getNickName(){
+    public String getNickName() {
         return nickName;
     }
 
     public String getLogin() {
         return login;
     }
-
 }
