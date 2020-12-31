@@ -34,7 +34,7 @@ public class Controller implements Initializable {
     public TextField textField;
 
     private final String IP_ADDRESS = "localhost";
-    private final int PORT = 8159;
+    private final int PORT = 8179;
     @FXML
     public ListView<String> clientList;
 
@@ -59,14 +59,13 @@ public class Controller implements Initializable {
     private Stage regStage;
     private RegController regController;
 
-    //private static FileOutputStream fileOutputLog;
+
     private static BufferedWriter writerLog;
     private static long logFileLength;
     private static PrintWriter printWriter;
 
 
-
-    public void setAuthenticated(boolean authenticated){
+    public void setAuthenticated(boolean authenticated) {
         this.authenticated = authenticated;
         authPanel.setVisible(!authenticated); // если не прошли аутенфикацию Видна верхняя панель
         authPanel.setManaged(!authenticated); // занимает место
@@ -76,7 +75,7 @@ public class Controller implements Initializable {
         clientList.setManaged(authenticated);
 
 
-        if(!authenticated){
+        if (!authenticated) {
             nickName = ""; // обнуление никНейма
         }
         textArea.clear(); // Чистим поле чата после выхода
@@ -90,29 +89,29 @@ public class Controller implements Initializable {
         createRegWindow();
         connection();
         // Работа с графикой должна осуществляться внутри графического модуля !!!!!!
-        Platform.runLater(() ->{
+        Platform.runLater(() -> {
 
             stage = (Stage) textField.getScene().getWindow(); // Обращение к Stage (основание окна) через textField
             stage.setOnCloseRequest(new EventHandler<WindowEvent>() { // Закрытие соединения по крестику, setOnCloseRequest реакция сробатывания на крестик
-            @Override
-            public void handle(WindowEvent event) {
-                System.out.println("byu");
-                try {
-                    out.writeUTF("/end"); // После закрытия на крестик отправляет на сервер сообщение о закрытии соединения
-                } catch (IOException e) {
-                    e.printStackTrace();
+                @Override
+                public void handle(WindowEvent event) {
+                    System.out.println("byu");
+                    try {
+                        out.writeUTF("/end"); // После закрытия на крестик отправляет на сервер сообщение о закрытии соединения
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                 }
-            }
-        });
+            });
         });
     }
 
     /**
      * Метод отвечающий за подключение к серверу
      */
-    private void connection () {
+    private void connection() {
         try {
-            socket = new Socket(IP_ADDRESS,PORT); // Создаем соединение (IP_address и PORT к кому полдключаемся)
+            socket = new Socket(IP_ADDRESS, PORT); // Создаем соединение (IP_address и PORT к кому полдключаемся)
             in = new DataInputStream(socket.getInputStream()); // Инициализация потоков
             out = new DataOutputStream(socket.getOutputStream()); // Инициализация потоков
 
@@ -121,32 +120,32 @@ public class Controller implements Initializable {
                 public void run() {
                     try {
                         // ЦИКЛ АУТЕНТИФИКАЦИИ
-                        while (true){
+                        while (true) {
                             String str = in.readUTF(); // ЧИТАЕМ ДАННЫЕ
-                            if (str.startsWith("/authok")){ // если начинается с пртокола
-                                nickName= str.split("\\s", 2)[1];//ПОЛУЧИЛИ НИК ОТ СЕРВЕРА
+                            if (str.startsWith("/authok")) { // если начинается с пртокола
+                                nickName = str.split("\\s", 2)[1];//ПОЛУЧИЛИ НИК ОТ СЕРВЕРА
                                 setAuthenticated(true); // меняем визуальное изображение
                                 //addNewClientLog(nickName);
                                 break;
                             }
-                            if(str.startsWith("/regok")){
+                            if (str.startsWith("/regok")) {
                                 regController.addMsgToTextArea("Регистрация прошла успешно");
                             }
-                            if(str.startsWith("/regno")){
+                            if (str.startsWith("/regno")) {
                                 regController.addMsgToTextArea("Регистрация не получилась \n возможно логин или пароль заняты");
                             }
                             textArea.appendText(str + "\n");
 
                         }
 
-                        addNewClientLog(loginField.getText());
+                        Logs.addNewClientLog(loginField.getText(), textArea);
                         //ЦИКЛ РАБОТЫ
                         while (true) {
 
                             String str = null; // Переменная для сообщений от сервера
                             str = in.readUTF(); // Считываем сообщенние от сервера
 
-                            if(str.startsWith("/")) { // Разбиваем на служебные сообщения
+                            if (str.startsWith("/")) { // Разбиваем на служебные сообщения
                                 if (str.equals("/end")) {
                                     System.out.println("Клиент отключился");
                                     break;
@@ -154,7 +153,7 @@ public class Controller implements Initializable {
 
                                 if (str.startsWith("/clientList")) { // Протокол для внесения пользователй в чат-лист
                                     String[] token = str.split("\\s+"); // разбиваем строку
-                                    Platform.runLater(()-> { // Запускаем графический поток
+                                    Platform.runLater(() -> { // Запускаем графический поток
                                         clientList.getItems().clear(); // Каждый раз очищаем списко перед добавлением ногово пользоватедя
                                         for (int i = 1; i < token.length; i++) {
                                             clientList.getItems().add(token[i]);
@@ -162,14 +161,14 @@ public class Controller implements Initializable {
                                     });
                                 }
                             } else {
-                                addMsgToClientLog(str);
+                                Logs.addMsgToClientLog(str);
                                 textArea.appendText(str + "\n");
 
                             }
                         }
-                    } catch(IOException e){
+                    } catch (IOException e) {
                         e.printStackTrace();
-                    } finally{
+                    } finally {
                         printWriter.close();
                         System.out.println("МЫ отключились от сервера");
                         setAuthenticated(false); // МЕНЯЕМ ВИЗУАЛИЗАЦИЮ ПРИ ОТКЛЮЧЕНИИ
@@ -203,15 +202,16 @@ public class Controller implements Initializable {
 
     /**
      * Метод передающий запрос серверу на авторизацию пользователя согласно протоколу!!! (/auth)
+     *
      * @param actionEvent
      */
     public void tryToAuth(ActionEvent actionEvent) {
-        if(socket==null || socket.isClosed()){ // Если сокет сервера закрыт или отсутсвует подключение к серверу
+        if (socket == null || socket.isClosed()) { // Если сокет сервера закрыт или отсутсвует подключение к серверу
             connection();
         }
         try {
             out.writeUTF(String.format("/auth %s %s", loginField.getText().trim().toLowerCase(),
-            passwordField.getText().trim())); // исходящий поток, который передает login и password согласно протоколу
+                    passwordField.getText().trim())); // исходящий поток, который передает login и password согласно протоколу
             passwordField.clear();
         } catch (IOException e) {
             e.printStackTrace();
@@ -221,12 +221,13 @@ public class Controller implements Initializable {
 
     /**
      * Метод который меняет поле после авторизации пользователя на "TITLE+" "+nick""
+     *
      * @param nick
      */
-    private void setTitle(String nick){
-        Platform.runLater(()-> { // ДОБОВЛЯЕТ В ОЧЕРДЬ НА ОБРАБОТКУ ГРАФИЧЕСКОМУ ПОТОКУ
-            ((Stage)textField.getScene().getWindow()).setTitle(TITLE+" "+nick);
-                });
+    private void setTitle(String nick) {
+        Platform.runLater(() -> { // ДОБОВЛЯЕТ В ОЧЕРДЬ НА ОБРАБОТКУ ГРАФИЧЕСКОМУ ПОТОКУ
+            ((Stage) textField.getScene().getWindow()).setTitle(TITLE + " " + nick);
+        });
     }
 
     public void registration(ActionEvent actionEvent) {
@@ -235,18 +236,19 @@ public class Controller implements Initializable {
 
     /**
      * Метод отвечает за отправку сообщений выбранному клиенту из списка чата и делает заготовку с троке чата
+     *
      * @param mouseEvent сам клик
      */
     public void clickClientList(MouseEvent mouseEvent) {
         String receiver = clientList.getSelectionModel().getSelectedItem(); // обращаемся к оперделенному эллемету из списка чата
-        textField.setText("/w "+receiver+" ");
+        textField.setText("/w " + receiver + " ");
     }
 
 
     /**
      * Метод отвечающий за создание окна регистрации
      */
-    private void createRegWindow(){
+    private void createRegWindow() {
         try {
             FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("/reg.fxml")); // показываем от куда загружать
             Parent root = fxmlLoader.load(); //ЗАгружает root который мы подкладывае для Scene
@@ -266,16 +268,17 @@ public class Controller implements Initializable {
 
     /**
      * Метод отвечающий за сбор данных из кона регистрации
+     *
      * @param login
      * @param password
      * @param nickName
      */
-    public void tryToReg (String login, String password, String nickName){
-        String msg = String.format("/reg %s %s %s", login,password,nickName);
+    public void tryToReg(String login, String password, String nickName) {
+        String msg = String.format("/reg %s %s %s", login, password, nickName);
 
-       if(socket==null || socket.isClosed()){ // Если сокет сервера закрыт или отсутсвует подключение к серверу
-           connection();
-       }
+        if (socket == null || socket.isClosed()) { // Если сокет сервера закрыт или отсутсвует подключение к серверу
+            connection();
+        }
 
         try {
             out.writeUTF(msg); // Отправляем серверу запрос на регистрацию нового пользователя
@@ -284,51 +287,50 @@ public class Controller implements Initializable {
         }
     }
 
-    public void addNewClientLog (String login) {
-        String fileName = "history_"+ login +".txt";
-        File file = new File ("C:\\Users\\79260\\Desktop\\Основной факультет\\Mavin_OnlineChat\\client\\src\\main\\java\\Client\\Logs\\"+fileName);
-        if(file.exists()){
-            try {
-                int counter = 0;
-                int n_lines = 100;
-                ArrayList<String> list = new ArrayList<>();
-                //FileReader fileReader = new FileReader(file);
-                ReversedLinesFileReader reversedLinesFileReader = new ReversedLinesFileReader(file);
-                try {
-                    while (counter < n_lines) {
-                        list.add(reversedLinesFileReader.readLine());
-                        counter++;
-                    }
-                } catch (NullPointerException o){
-
-                } finally {
-                    reversedLinesFileReader.close();
-                }
-                Collections.reverse(list);
-                for (String st: list){
-                    if(st!=null){
-                    textArea.appendText(st+"\n");}
-                }
-
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-
-        }
-        try {
-            printWriter = new PrintWriter(new FileWriter(file, true));
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void addMsgToClientLog (String msg){
-        printWriter.println(msg);
-        printWriter.flush();
-    }
-
+//    public void addNewClientLog (String login) {
+//        String fileName = "history_"+ login +".txt";
+//        File file = new File ("C:\\Users\\79260\\Desktop\\Основной факультет\\Mavin_OnlineChat\\client\\src\\main\\java\\Client\\Logs\\"+fileName);
+//        if(file.exists()){
+//            try {
+//                int counter = 0;
+//                int n_lines = 100;
+//                ArrayList<String> list = new ArrayList<>();
+//                //FileReader fileReader = new FileReader(file);
+//                ReversedLinesFileReader reversedLinesFileReader = new ReversedLinesFileReader(file);
+//                try {
+//                    while (counter < n_lines) {
+//                        list.add(reversedLinesFileReader.readLine());
+//                        counter++;
+//                    }
+//                } catch (NullPointerException o){
+//
+//                } finally {
+//                    reversedLinesFileReader.close();
+//                }
+//                Collections.reverse(list);
+//                for (String st: list){
+//                    if(st!=null){
+//                    textArea.appendText(st+"\n");}
+//                }
+//
+//            } catch (FileNotFoundException e) {
+//                e.printStackTrace();
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//
+//        }
+//        try {
+//            printWriter = new PrintWriter(new FileWriter(file, true));
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//    }
+//
+//    public void addMsgToClientLog (String msg){
+//        printWriter.println(msg);
+//        printWriter.flush();
+//    }
 }

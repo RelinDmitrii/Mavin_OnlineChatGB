@@ -1,3 +1,8 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+/compiler.xml
+/jarRepositories.xml
+/modules.xml
+/vcs.xml
+/Mavin_OnlineChatGB.iml
