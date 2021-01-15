@@ -5,6 +5,7 @@ import java.io.DataOutputStream;
 import java.io.IOException;
 import java.net.Socket;
 import java.util.concurrent.ExecutorService;
+import java.util.logging.Level;
 
 public class ClientHandler {
 
@@ -68,7 +69,7 @@ public class ClientHandler {
                     // ЦИКЛ РАБОТЫ
                     while (true) {
                         String str = in.readUTF();
-
+                        server.logger.log(Level.INFO, "Пришло сообщение от клиента: " + nickName);
                         if (str.startsWith("/")) {
 
                             if (str.equals("/end")) {

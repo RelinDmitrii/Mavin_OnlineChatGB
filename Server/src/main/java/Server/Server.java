@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Vector;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.logging.FileHandler;
+import java.util.logging.Handler;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 public class Server {
@@ -22,10 +26,13 @@ public class Server {
     private AuthService authService;
     private static Statement statement;
     private ExecutorService service;
+    Logger logger;
+    Handler fileHandler;
 
     public Server() {
         service = Executors.newCachedThreadPool();
         clients = new Vector<>();
+        logger = Logger.getLogger(getClass().getName());
 //        authService = new SimpleAuthService();
 
 
@@ -39,17 +46,23 @@ public class Server {
 
         try {//statement = ConnectionToSql.connectToSQL();
             // authService = new SimpleAuthService();
+            fileHandler = new FileHandler("Log.log", true);
+            logger.setUseParentHandlers(false);
+            logger.addHandler(fileHandler);
             server = new ServerSocket(PORT); // Создаем сервер сокет.
-            System.out.println("Сервер запущен");
+            logger.log(Level.INFO, "Сервер запущен");
+            //System.out.println("Сервер запущен");
 
             while (true) {
                 socket = server.accept(); // Как только кто-то подключается появляется клиентский соккет
-                System.out.println("Клиент подключился");
+                logger.log(Level.INFO, "Клиент подключился");
+                //System.out.println("Клиент подключился");
                 new ClientHandler(this, socket, service); // Создаем нового клиента в скисок (Конструктор Сервер/Соккет)
             }
 
 
         } catch (IOException e) {
+            logger.log(Level.WARNING, "Произошла ошибка");
             e.printStackTrace();
         } finally {
             SQLHandler.disconnect();
@@ -57,6 +70,7 @@ public class Server {
                 service.shutdown();
                 server.close();
             } catch (IOException e) {
+                logger.log(Level.WARNING, "Произошла ошибка");
                 e.printStackTrace();
             }
         }
